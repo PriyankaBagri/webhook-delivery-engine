@@ -28,7 +28,22 @@
                 <span class="text-xs text-slate-400 font-mono">Live Sync Active</span>
             </div>
         </div>
-
+          <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-xl flex flex-col justify-between">
+                <span class="text-xs font-mono uppercase tracking-wider text-slate-400">Total Webhooks</span>
+                <span id="stat-total" class="text-4xl font-bold text-slate-100 mt-2 font-mono">-</span>
+            </div>
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-xl flex flex-col justify-between">
+                <span class="text-xs font-mono uppercase tracking-wider text-slate-400">Success Rate</span>
+                <div class="flex items-baseline gap-2 mt-2">
+                    <span id="stat-success-rate" class="text-4xl font-bold text-emerald-400 font-mono">-</span>
+                </div>
+            </div>
+            <div class="bg-slate-900 border border-slate-800 rounded-xl p-6 shadow-xl flex flex-col justify-between">
+                <span class="text-xs font-mono uppercase tracking-wider text-slate-400">Failed Deliveries</span>
+                <span id="stat-failed" class="text-4xl font-bold text-rose-400 mt-2 font-mono">-</span>
+            </div>
+        </div>
         <div class="bg-slate-900 border border-slate-800 rounded-xl overflow-hidden shadow-2xl">
             <div class="p-5 border-b border-slate-800 bg-slate-900/50 flex justify-between items-center">
                 <h2 class="font-semibold text-slate-200">Webhook Logs History</h2>
@@ -66,6 +81,31 @@
         function updateDashboard(logs) {
             const tbody = document.getElementById('logs-table-body');
             
+            // --- ANALYTICS CALCULATION LOGIC START ---
+            const totalLogs = logs ? logs.length : 0;
+            let successCount = 0;
+            let failedCount = 0;
+
+            if (totalLogs > 0) {
+                logs.forEach(log => {
+                    const currentStatus = String(log.status || '').toUpperCase();
+const isSuccess = (log.status_code >= 200 && log.status_code < 300) || currentStatus === 'SUCCESS' || currentStatus === 'SUCCEEDED';
+                    if (isSuccess) {
+                        successCount++;
+                    } else {
+                        failedCount++;
+                    }
+                });
+            }
+
+            const successRate = totalLogs > 0 ? ((successCount / totalLogs) * 100).toFixed(1) : 0;
+
+            // DOM elements mein values insert karna
+            document.getElementById('stat-total').innerText = totalLogs;
+            document.getElementById('stat-success-rate').innerText = `${successRate}%`;
+            document.getElementById('stat-failed').innerText = failedCount;
+            // --- ANALYTICS CALCULATION LOGIC END ---
+
             if (!logs || logs.length === 0) {
                 tbody.innerHTML = `
                     <tr>
@@ -78,31 +118,27 @@
 
             let rowsHtml = '';
             logs.forEach(log => {
-            // Agar status_code hai toh use dikhao, nahi toh jo string status ('FAILED'/'SUCCESS') hai wohi dikhao
-            const displayStatus = log.status_code || log.status || 'UNKNOWN';
-            
-            // Status color logic: Agar status 200-299 hai ya string 'SUCCESS' hai toh green, nahi toh red
-            const isSuccess = (log.status_code >= 200 && log.status_code < 300) || String(log.status).toUpperCase() === 'SUCCESS';
-            
-            const badgeClass = isSuccess 
-                ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
-                : 'bg-rose-500/10 text-rose-400 border-rose-500/20';
+                const displayStatus = log.status_code || log.status || 'UNKNOWN';
+                const isSuccess = (log.status_code >= 200 && log.status_code < 300) || String(log.status).toUpperCase() === 'SUCCESS';
+                const badgeClass = isSuccess 
+                    ? 'bg-emerald-500/10 text-emerald-400 border-emerald-500/20' 
+                    : 'bg-rose-500/10 text-rose-400 border-rose-500/20';
 
-            rowsHtml += `
-                <tr class="hover:bg-slate-800/30 transition font-mono text-xs text-slate-300">
-                    <td class="p-4 text-slate-500">#${log.id}</td>
-                    <td class="p-4 font-semibold text-slate-200">${log.event || log.event_type || 'Webhook'}</td>
-                    <td class="p-4 text-slate-400 truncate max-w-xs" title="${log.url}">${log.url || 'N/A'}</td>
-                    <td class="p-4">
-                        <span class="px-2.5 py-1 rounded-md text-xs font-semibold border ${badgeClass}">
-                            ${displayStatus}
-                        </span>
-                    </td>
-                    <td class="p-4 text-slate-400 truncate max-w-xs">${log.response_body || log.response || '{}'}</td>
-                    <td class="p-4 text-slate-500">${new Date(log.timestamp).toLocaleString() || 'Just now'}</td>
-                </tr>
-            `;
-        });
+                rowsHtml += `
+                    <tr class="hover:bg-slate-800/30 transition font-mono text-xs text-slate-300">
+                        <td class="p-4 text-slate-500">#${log.id}</td>
+                        <td class="p-4 font-semibold text-slate-200">${log.event || log.event_type || 'Webhook'}</td>
+                        <td class="p-4 text-slate-400 truncate max-w-xs" title="${log.url}">${log.url || 'N/A'}</td>
+                        <td class="p-4">
+                            <span class="px-2.5 py-1 rounded-md text-xs font-semibold border ${badgeClass}">
+                                ${displayStatus}
+                            </span>
+                        </td>
+                        <td class="p-4 text-slate-400 truncate max-w-xs">${log.response_body || log.response || '{}'}</td>
+                        <td class="p-4 text-slate-500">${new Date(log.timestamp).toLocaleString() || 'Just now'}</td>
+                    </tr>
+                `;
+            });
 
             tbody.innerHTML = rowsHtml;
         }
